@@ -1,0 +1,11 @@
+name: "Docker Compose"
+description: "Use docker compose to setup custom devservices"
+metadata:
+  keywords:
+    - "docker"
+    - "devservices"
+    - "docker-compose"
+  categories:
+    - "miscellaneous"
+  status: "experimental"
+short-name: "docker-compose"
