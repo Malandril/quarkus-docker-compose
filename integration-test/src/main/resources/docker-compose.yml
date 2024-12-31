@@ -3,10 +3,6 @@ services:
   whoami:
     image: "traefik/whoami"
   salut:
-    image: "traefik/whoami"
-  cava:
-    image: "traefik/whoami"
+    image: mysql
   test:
-    image: "traefik/whoami"
-    ports:
-      - "7754:80"
+    image: hello-world
