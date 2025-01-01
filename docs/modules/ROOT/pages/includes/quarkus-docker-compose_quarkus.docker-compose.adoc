@@ -1,0 +1,213 @@
+[.configuration-legend]
+icon:lock[title=Fixed at build time] Configuration property fixed at build time - All other configuration properties are overridable at runtime
+[.configuration-reference.searchable, cols="80,.^10,.^10"]
+|===
+
+h|[.header-title]##Configuration property##
+h|Type
+h|Default
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-enabled]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-enabled[`quarkus.docker-compose.enabled`]##
+
+[.description]
+--
+Enables the quarkus docker-compose devservices
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_ENABLED+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_ENABLED+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`true`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-always-restart]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-always-restart[`quarkus.docker-compose.always-restart`]##
+
+[.description]
+--
+Always restart the docker-compose services between each application reload
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_ALWAYS_RESTART+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_ALWAYS_RESTART+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`false`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-filename]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-filename[`quarkus.docker-compose.filename`]##
+
+[.description]
+--
+The docker-compose file to run, it should be located in your resources folder.
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_FILENAME+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_FILENAME+++`
+endif::add-copy-button-to-env-var[]
+--
+|string
+|`docker-compose.yml`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-compose-env-compose-env]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-compose-env-compose-env[`quarkus.docker-compose.services."services".compose-env."compose-env"`]##
+
+[.description]
+--
+Docker compose environment variable to set this can then be used in the docker-compose.
+<br/>
+The variable will be prefixed by the service's name in uppercase, and with all non word characters replaced
+by _.
+For example:
+
+[,property]
+.application.properties
+----
+quarkus.docker-compose.services.hello-svc.compose-env.HOSTNAME=customhostname
+----
+
+Will set the compose variable: `HELLO_SVC_PASSWORD=mypwd` that can be used in the docker-compose file
+
+[,yaml]
+.docker-compose.yml
+----
+services:
+  hello-svc:
+    image: hello-world
+    environment:
+      PASSWORD: "${HELLO_SVC_PASSWORD}"
+----
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__COMPOSE_ENV__COMPOSE_ENV_+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__COMPOSE_ENV__COMPOSE_ENV_+++`
+endif::add-copy-button-to-env-var[]
+--
+|Map<String,String>
+|
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-container-ports]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-container-ports[`quarkus.docker-compose.services."services".container-ports`]##
+
+[.description]
+--
+The container ports that will be exposed to the host, and that can be joined by the quarkus server.
+
+Each port will be exposed as a random port on the host, and two config properties will be exposed:
+
+[,property]
+----
+docker-compose.service.service-name.host
+docker-compose.service.service-name.port
+----
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__CONTAINER_PORTS+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__CONTAINER_PORTS+++`
+endif::add-copy-button-to-env-var[]
+--
+|list of int
+|
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-enabled]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-enabled[`quarkus.docker-compose.services."services".enabled`]##
+
+[.description]
+--
+True if the service should be started by docker compose
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__ENABLED+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__ENABLED+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`true`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-wait-for-docker-healthcheck]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-wait-for-docker-healthcheck[`quarkus.docker-compose.services."services".wait-for-docker-healthcheck`]##
+
+[.description]
+--
+True if docker compose should wait for the container to be healthy before starting quarkus.
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_FOR_DOCKER_HEALTHCHECK+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_FOR_DOCKER_HEALTHCHECK+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`false`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-wait-for-log]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-wait-for-log[`quarkus.docker-compose.services."services".wait-for-log`]##
+
+[.description]
+--
+Set a log to wait for, before starting the quarkus application.
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_FOR_LOG+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_FOR_LOG+++`
+endif::add-copy-button-to-env-var[]
+--
+|string
+|
+
+a|icon:lock[title=Fixed at build time] [[quarkus-docker-compose_quarkus-docker-compose-services-services-wait-timeout]] [.property-path]##link:#quarkus-docker-compose_quarkus-docker-compose-services-services-wait-timeout[`quarkus.docker-compose.services."services".wait-timeout`]##
+
+[.description]
+--
+The timeout to wait for a service before an error is thrown
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_TIMEOUT+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_DOCKER_COMPOSE_SERVICES__SERVICES__WAIT_TIMEOUT+++`
+endif::add-copy-button-to-env-var[]
+--
+|link:https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/Duration.html[Duration] link:#duration-note-anchor-quarkus-docker-compose_quarkus-docker-compose[icon:question-circle[title=More information about the Duration format]]
+|`1M`
+
+|===
+
+ifndef::no-duration-note[]
+[NOTE]
+[id=duration-note-anchor-quarkus-docker-compose_quarkus-docker-compose]
+.About the Duration format
+====
+To write duration values, use the standard `java.time.Duration` format.
+See the link:https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/Duration.html#parse(java.lang.CharSequence)[Duration#parse() Java API documentation] for more information.
+
+You can also use a simplified format, starting with a number:
+
+* If the value is only a number, it represents time in seconds.
+* If the value is a number followed by `ms`, it represents time in milliseconds.
+
+In other cases, the simplified format is translated to the `java.time.Duration` format for parsing:
+
+* If the value is a number followed by `h`, `m`, or `s`, it is prefixed with `PT`.
+* If the value is a number followed by `d`, it is prefixed with `P`.
+====
+endif::no-duration-note[]

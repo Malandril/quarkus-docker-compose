@@ -1,0 +1,5 @@
+name: quarkus-docker-compose-2
+title: Docker Compose 2
+version: dev
+nav:
+  - modules/ROOT/nav.adoc

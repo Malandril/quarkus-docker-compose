@@ -1,0 +1,78 @@
+= Quarkus Docker Compose
+
+include::./includes/attributes.adoc[]
+
+Quarkus https://github.com/docker/compose[Docker Compose] extension for setting up local devservices from
+a docker-compose file.
+
+This extension starts the services from a `docker-compose.yml` file as `Dev Services`,
+thus it is designed to run in `dev` and `test` mode only!
+
+
+== Installation
+
+If you want to use this extension, you need to add the `io.quarkiverse.quarkus-docker-compose:quarkus-docker-compose` extension first to your build file.
+
+For instance, with Maven, add the following dependency to your POM file:
+
+[source,xml,subs=attributes+]
+----
+<dependency>
+    <groupId>io.quarkiverse.quarkus-docker-compose</groupId>
+    <artifactId>quarkus-docker-compose</artifactId>
+    <version>{project-version}</version>
+</dependency>
+----
+
+== Usage
+
+The extension expects a docker compose file in the resources folder named `docker-compose.yml`.
+
+In this file you can define the services that you want to be started in `dev` and `test`
+
+If you want to expose the service to your quarkus application you can add a port to your quarkus configuration,
+this will expose the service to a random port that can be reached by the quarkus application.
+
+It will then expose two
+configuration properties with the `host` and `port` that can be used to reach the service.
+
+For example for accessing the following service from your application:
+[,yaml]
+.src/main/resources/docker-compose.yml
+----
+services:
+  myservice:
+    image: traefik/whoami
+----
+You can define the port the container listens to:
+[,properties]
+.application.properties
+----
+quarkus.docker-compose.services."myservice".container-ports=80
+----
+It will create the following properties wich can be used to reach the server:
+[,properties]
+----
+docker-compose.services.myservice.port
+docker-compose.services.myservice.host
+----
+
+[NOTE]
+====
+You can also expose your services using the usual `ports` definition in the docker-compose.yml
+[,yaml]
+.src/main/resources/docker-compose.yml
+----
+services:
+  myservice:
+    image: traefik/whoami
+    ports:
+      - "8888:80"
+----
+
+====
+
+[[extension-configuration-reference]]
+== Extension Configuration Reference
+
+include::includes/quarkus-docker-compose.adoc[leveloffset=+1, opts=optional]

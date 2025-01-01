@@ -1,6 +1,6 @@
-# Quarkus Docker Compose
+# Quarkus Docker Compose 2
 
-[![Version](https://img.shields.io/maven-central/v/io.quarkiverse.quarkus-docker-compose/quarkus-docker-compose?logo=apache-maven&style=flat-square)](https://central.sonatype.com/artifact/io.quarkiverse.quarkus-docker-compose/quarkus-docker-compose-parent)
+[![Version](https://img.shields.io/maven-central/v/io.quarkiverse.quarkus-docker-compose-2/quarkus-docker-compose-2?logo=apache-maven&style=flat-square)](https://central.sonatype.com/artifact/io.quarkiverse.quarkus-docker-compose-2/quarkus-docker-compose-2-parent)
 
 ## Welcome to Quarkiverse!
 
