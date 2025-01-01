@@ -14,10 +14,12 @@ import io.quarkus.deployment.builditem.DevServicesResultBuildItem;
 import io.quarkus.deployment.builditem.DockerStatusBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.HotDeploymentWatchedFileBuildItem;
+import io.quarkus.deployment.builditem.LiveReloadBuildItem;
 import io.quarkus.deployment.dev.devservices.GlobalDevServicesConfig;
 import io.quarkus.runtime.configuration.ConfigurationException;
-import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.wait.strategy.DockerHealthcheckWaitStrategy;
@@ -30,23 +32,21 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static io.quarkus.deployment.builditem.DevServicesResultBuildItem.RunningDevService;
 
-@Slf4j
 @BuildSteps(onlyIfNot = IsNormal.class, onlyIf = GlobalDevServicesConfig.Enabled.class)
 public class DockerComposeExtensionProcessor {
 
+    public static final Pattern NON_WORD = Pattern.compile("\\W+");
+    private static final Logger log = LoggerFactory.getLogger(DockerComposeExtensionProcessor.class);
     private static final String FEATURE = "docker-compose";
-    private final DockerComposeConfig extensionConfig;
     private static volatile Map<String, RunningDevService> runningDevServices;
-    private static volatile int dockerComposeYamlHash = 0;
-    private static volatile int oldDockerComposeYamlHash = 0;
-    private static volatile DockerComposeConfig oldExtensionConfig;
+    private final DockerComposeConfig extensionConfig;
 
     public DockerComposeExtensionProcessor(DockerComposeConfig extensionConfig) {
         this.extensionConfig = extensionConfig;
@@ -57,9 +57,22 @@ public class DockerComposeExtensionProcessor {
         return new FeatureBuildItem(FEATURE);
     }
 
+    private void closeServices() {
+        if (runningDevServices != null) {
+            log.info("Stopping docker compose services");
+            for (RunningDevService devService : runningDevServices.values()) {
+                try {
+                    devService.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
     @BuildStep
     public void createContainer(CuratedApplicationShutdownBuildItem curatedApplicationShutdownBuildItem,
-                                DockerStatusBuildItem dockerStatusBuildItem,
+                                DockerStatusBuildItem dockerStatusBuildItem, LiveReloadBuildItem liveReloadBuildItem,
                                 BuildProducer<DevServicesResultBuildItem> devProducer,
                                 BuildProducer<HotDeploymentWatchedFileBuildItem> watcherProducer,
                                 BuildProducer<ValidationPhaseBuildItem.ValidationErrorBuildItem> errorProducer)
@@ -74,34 +87,33 @@ public class DockerComposeExtensionProcessor {
         Path tmpPath = Files.createTempFile(FEATURE, "quarkus");
         File composeFile = tmpPath.toFile();
         composeFile.deleteOnExit();
-        DockerCompose compose;
+        DockerComposeExtensionState currentState;
         try {
-            compose = load(tmpPath);
+            currentState = load(tmpPath);
         } catch (JacksonYAMLParseException e) {
             log.debug("Invalid docker-compose yaml", e);
             errorProducer.produce(validationError("Invalid docker-compose " + e.getMessage()));
             return;
         }
-        if (compose == null || compose.services == null || compose.services.isEmpty()) {
-            log.warn("Could not find the docker compose file, or no services where found");
+        if (currentState == null) {
+            log.warn("Could not find the docker compose file {}", extensionConfig.filename());
             return;
         }
+        DockerComposeModel composeYaml = currentState.dockerComposeYaml();
         var url = Thread.currentThread().getContextClassLoader().getResource(extensionConfig.filename());
         if (url != null) {
             watcherProducer.produce(new HotDeploymentWatchedFileBuildItem(url.getPath()));
         }
-        List<ValidationPhaseBuildItem.ValidationErrorBuildItem> errors = validateConfig(compose);
+        List<ValidationPhaseBuildItem.ValidationErrorBuildItem> errors = validateConfig(composeYaml);
         if (!errors.isEmpty()) {
             errorProducer.produce(errors);
             return;
         }
 
         if (runningDevServices != null) {
-            if (extensionConfig.alwaysRestart() || oldDockerComposeYamlHash != dockerComposeYamlHash || !extensionConfig.equals(
-                    oldExtensionConfig)) {
-                for (RunningDevService devService : runningDevServices.values()) {
-                    devService.close();
-                }
+            DockerComposeExtensionState oldState = liveReloadBuildItem.getContextObject(DockerComposeExtensionState.class);
+            if (extensionConfig.alwaysRestart() || !currentState.equals(oldState)) {
+                closeServices();
             } else {
                 for (var serviceEntry : runningDevServices.entrySet()) {
                     devProducer.produce(serviceEntry.getValue().toBuildItem());
@@ -112,7 +124,7 @@ public class DockerComposeExtensionProcessor {
 
         ComposeContainer container = new ComposeContainer(composeFile);
         List<String> services = new ArrayList<>();
-        for (var service : compose.services().entrySet()) {
+        for (var service : composeYaml.services().entrySet()) {
             if (!extensionConfig.services().containsKey(service.getKey())) {
                 services.add(service.getKey());
             } else if (extensionConfig.services().get(service.getKey()).enabled()) {
@@ -121,12 +133,11 @@ public class DockerComposeExtensionProcessor {
         }
 
         configureContainers(container, services);
-        curatedApplicationShutdownBuildItem.addCloseTask(container::close, true);
+        curatedApplicationShutdownBuildItem.addCloseTask(this::closeServices, true);
+        log.info("Starting docker compose services: {}", String.join(",", services));
         container.start();
-
         runningDevServices = produceDevServices(devProducer, services, container);
-        oldExtensionConfig = extensionConfig;
-        oldDockerComposeYamlHash = dockerComposeYamlHash;
+        liveReloadBuildItem.setContextObject(DockerComposeExtensionState.class, currentState);
     }
 
     private void configureContainers(ComposeContainer container, List<String> services) {
@@ -137,11 +148,14 @@ public class DockerComposeExtensionProcessor {
                 continue;
             }
             WaitAllStrategy waitAll = new WaitAllStrategy().withStartupTimeout(serviceConfig.waitTimeout());
-            for (Integer port : serviceConfig.containerPorts()) {
-                container.withExposedService(service, port);
+            if (serviceConfig.containerPorts().isPresent()) {
+                for (Integer port : serviceConfig.containerPorts().get()) {
+                    container.withExposedService(service, port);
+                }
             }
-            for (var env : serviceConfig.containerEnv().entrySet()) {
-                container.withEnv(service + "_" + env.getKey(), env.getValue());
+            for (var env : serviceConfig.composeEnv().entrySet()) {
+                String prefix = NON_WORD.matcher(service.toUpperCase()).replaceAll("_");
+                container.withEnv(prefix + "_" + env.getKey(), env.getValue());
             }
             if (serviceConfig.waitForLog().isPresent()) {
                 waitAll.withStrategy(new LogMessageWaitStrategy().withRegEx(serviceConfig.waitForLog().get()));
@@ -161,12 +175,14 @@ public class DockerComposeExtensionProcessor {
             Map<String, String> configOverrides = new HashMap<>();
             var serviceConfig = extensionConfig.services().get(service);
             if (serviceConfig != null) {
-                for (Integer port : serviceConfig.containerPorts()) {
-                    configOverrides.put("docker-compose.service.%s.host".formatted(service),
-                                        container.getServiceHost(service, port));
-                    Integer servicePort = container.getServicePort(service, port);
-                    configOverrides.put("docker-compose.service.%s.port".formatted(service),
-                                        String.valueOf(servicePort));
+                if (serviceConfig.containerPorts().isPresent()) {
+                    for (Integer port : serviceConfig.containerPorts().get()) {
+                        configOverrides.put("docker-compose.service.%s.host".formatted(service),
+                                            container.getServiceHost(service, port));
+                        Integer servicePort = container.getServicePort(service, port);
+                        configOverrides.put("docker-compose.service.%s.port".formatted(service),
+                                            String.valueOf(servicePort));
+                    }
                 }
             }
             String containerId = container.getContainerByServiceName(service)
@@ -183,7 +199,12 @@ public class DockerComposeExtensionProcessor {
         return devServices;
     }
 
-    private List<ValidationPhaseBuildItem.ValidationErrorBuildItem> validateConfig(DockerCompose composeYaml) {
+    /**
+     * Validate that all the configured services exist in the compose file
+     * @param composeYaml The parsed compose file
+     * @return A list of errors, empty if none are found
+     */
+    private List<ValidationPhaseBuildItem.ValidationErrorBuildItem> validateConfig(DockerComposeModel composeYaml) {
         List<ValidationPhaseBuildItem.ValidationErrorBuildItem> errors = new ArrayList<>();
         for (var service : extensionConfig.services().entrySet()) {
             if (!composeYaml.services().containsKey(service.getKey())) {
@@ -198,28 +219,33 @@ public class DockerComposeExtensionProcessor {
         return new ValidationPhaseBuildItem.ValidationErrorBuildItem(new ConfigurationException(service));
     }
 
-    private DockerCompose load(Path path) throws IOException {
-        DockerCompose composeYaml;
+    /**
+     * Load a docker compose file from the resources, and copies it to the path.
+     * Needed because test container docker-compose needs a file location.
+     * @param tmpFile a path the docker-compose will be copied to
+     * @return The all the extension state that can be used to check for difference between live reloads
+     */
+    private DockerComposeExtensionState load(Path tmpFile) throws IOException {
         try (var is = Thread.currentThread().getContextClassLoader().getResourceAsStream(extensionConfig.filename())) {
             if (is == null) {
-                log.info("No docker compose file found");
                 return null;
             }
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
             mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            composeYaml = mapper.readValue(is, DockerCompose.class);
+            DockerComposeModel composeYaml = mapper.readValue(is, DockerComposeModel.class);
+            // Reset to write to temporary file
             is.reset();
-            try (OutputStream os = Files.newOutputStream(path)) {
+            try (OutputStream os = Files.newOutputStream(tmpFile)) {
                 is.transferTo(os);
             }
-            is.reset();
-            dockerComposeYamlHash = Arrays.hashCode(is.readAllBytes());
+            return new DockerComposeExtensionState(extensionConfig, composeYaml);
         }
-        return composeYaml;
     }
 
-    record DockerCompose(Map<String, Service> services) {
-        record Service(String image, List<Object> ports) {
-        }
+    record DockerComposeExtensionState(DockerComposeConfig oldExtensionConfig, DockerComposeModel dockerComposeYaml) {
+
+    }
+
+    record DockerComposeModel(Map<String, Object> services) {
     }
 }
